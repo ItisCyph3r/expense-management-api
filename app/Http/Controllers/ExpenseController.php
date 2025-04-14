@@ -6,7 +6,7 @@ use App\Models\Expense;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\{Cache, DB};
 use App\Jobs\SendWeeklyExpenseReport;
 
 class ExpenseController extends Controller
@@ -52,29 +52,40 @@ class ExpenseController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'amount' => 'required|numeric|min:0',
-            'category' => 'required|string|max:255',
-        ]);
-        
-        $user = $request->user();
-        
-        $expense = Expense::create([
-            'title' => $request->title,
-            'amount' => $request->amount,
-            'category' => $request->category,
-            'user_id' => $user->id,
-            'company_id' => $user->company_id,
-        ]);
-        
-        // Clear relevant cache
-        $this->clearExpenseCache($user->company_id);
-        
-        return response()->json([
-            'message' => 'Expense created successfully',
-            'expense' => $expense
-        ], 201);
+        return DB::transaction(function () use ($request) {
+            $request->validate([
+                'title' => 'required|string|max:255',
+                'amount' => 'required|numeric|min:0',
+                'category' => 'required|string|max:255',
+            ]);
+            
+            $user = $request->user();
+            
+            $expense = Expense::create([
+                'title' => $request->title,
+                'amount' => $request->amount,
+                'category' => $request->category,
+                'user_id' => $user->id,
+                'company_id' => $user->company_id,
+            ]);
+
+            AuditLog::create([
+                'user_id' => $user->id,
+                'company_id' => $user->company_id,
+                'action' => 'create',
+                'changes' => [
+                    'old' => null,
+                    'new' => $expense->toArray()
+                ]
+            ]);
+            
+            $this->clearExpenseCache($user->company_id);
+            
+            return response()->json([
+                'message' => 'Expense created successfully',
+                'expense' => $expense
+            ], 201);
+        });
     }
 
     /**
@@ -82,38 +93,35 @@ class ExpenseController extends Controller
      */
     public function update(Request $request, Expense $expense)
     {
-        $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'amount' => 'sometimes|required|numeric|min:0',
-            'category' => 'sometimes|required|string|max:255',
-        ]);
-        
-        $user = $request->user();
-        
-        // Store old values for audit log
-        $oldValues = $expense->toArray();
-        
-        // Update expense
-        $expense->update($request->only(['title', 'amount', 'category']));
-        
-        // Create audit log
-        AuditLog::create([
-            'user_id' => $user->id,
-            'company_id' => $user->company_id,
-            'action' => 'update',
-            'changes' => [
-                'old' => $oldValues,
-                'new' => $expense->toArray()
-            ]
-        ]);
-        
-        // Clear relevant cache
-        $this->clearExpenseCache($user->company_id);
-        
-        return response()->json([
-            'message' => 'Expense updated successfully',
-            'expense' => $expense
-        ]);
+        return DB::transaction(function () use ($request, $expense) {
+            $request->validate([
+                'title' => 'sometimes|required|string|max:255',
+                'amount' => 'sometimes|required|numeric|min:0',
+                'category' => 'sometimes|required|string|max:255',
+            ]);
+            
+            $user = $request->user();
+            $oldValues = $expense->toArray();
+            
+            $expense->update($request->only(['title', 'amount', 'category']));
+            
+            AuditLog::create([
+                'user_id' => $user->id,
+                'company_id' => $user->company_id,
+                'action' => 'update',
+                'changes' => [
+                    'old' => $oldValues,
+                    'new' => $expense->toArray()
+                ]
+            ]);
+            
+            $this->clearExpenseCache($user->company_id);
+            
+            return response()->json([
+                'message' => 'Expense updated successfully',
+                'expense' => $expense
+            ]);
+        });
     }
 
     /**
@@ -121,31 +129,28 @@ class ExpenseController extends Controller
      */
     public function destroy(Request $request, Expense $expense)
     {
-        $user = $request->user();
-        
-        // Store expense data for audit log
-        $expenseData = $expense->toArray();
-        
-        // Delete expense
-        $expense->delete();
-        
-        // Create audit log
-        AuditLog::create([
-            'user_id' => $user->id,
-            'company_id' => $user->company_id,
-            'action' => 'delete',
-            'changes' => [
-                'old' => $expenseData,
-                'new' => null
-            ]
-        ]);
-        
-        // Clear relevant cache
-        $this->clearExpenseCache($user->company_id);
-        
-        return response()->json([
-            'message' => 'Expense deleted successfully'
-        ]);
+        return DB::transaction(function () use ($request, $expense) {
+            $user = $request->user();
+            $expenseData = $expense->toArray();
+            
+            $expense->delete();
+            
+            AuditLog::create([
+                'user_id' => $user->id,
+                'company_id' => $user->company_id,
+                'action' => 'delete',
+                'changes' => [
+                    'old' => $expenseData,
+                    'new' => null
+                ]
+            ]);
+            
+            $this->clearExpenseCache($user->company_id);
+            
+            return response()->json([
+                'message' => 'Expense deleted successfully'
+            ]);
+        });
     }
     
     /**
