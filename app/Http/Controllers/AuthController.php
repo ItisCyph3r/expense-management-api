@@ -33,7 +33,7 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'company_id' => $company->id,
-            'role' => 'Admin',
+            // Role will default to 'Employee' from User model
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;

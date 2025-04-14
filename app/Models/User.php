@@ -27,6 +27,10 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
+    protected $attributes = [
+        'role' => 'Employee'  // This sets the default role
+    ];
+
     public function company()
     {
         return $this->belongsTo(Company::class);
