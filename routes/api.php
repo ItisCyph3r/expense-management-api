@@ -44,4 +44,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])
             ->middleware('same-company');
     });
+
+
+
+    // Role Management - Super Admin
+    Route::middleware('role:Super_Admin')->group(function () {
+        Route::patch('/users/{user}/role', [UserController::class, 'updateRole']);
+    });
+
+    // Role Management - Admin
+    Route::middleware('role:Admin')->group(function () {
+        Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])
+            ->middleware('same-company');
+    });
 });

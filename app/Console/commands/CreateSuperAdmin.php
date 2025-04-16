@@ -20,15 +20,20 @@ class CreateSuperAdmin extends Command
             return 1;
         }
 
-        User::create([
-            'name' => $this->argument('name'),
-            'email' => $email,
-            'password' => Hash::make($this->argument('password')),
-            'role' => 'Super_Admin',
-            'company_id' => null
-        ]);
+        try {
+            User::create([
+                'name' => $this->argument('name'),
+                'email' => $email,
+                'password' => Hash::make($this->argument('password')),
+                'role' => 'Super_Admin',
+                'company_id' => null
+            ]);
 
-        $this->info("Super Admin {$email} created successfully!");
-        return 0;
+            $this->info("Super Admin {$email} created successfully!");
+            return 0;
+        } catch (\Exception $e) {
+            $this->error("Failed to create Super Admin: " . $e->getMessage());
+            return 1;
+        }
     }
 }

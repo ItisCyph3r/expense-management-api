@@ -96,4 +96,56 @@ class UserController extends Controller
             'user' => $user
         ]);
     }
+
+    public function updateRole(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'role' => ['required', 'string', 'in:Admin,Manager,Employee'],
+        ]);
+
+        $currentUser = $request->user();
+
+        // Super Admin can promote anyone to Admin
+        if ($currentUser->isSuperAdmin()) {
+            if ($validated['role'] !== 'Admin') {
+                return response()->json([
+                    'message' => 'Super Admin can only promote users to Admin role'
+                ], 403);
+            }
+            
+            if ($user->isSuperAdmin()) {
+                return response()->json([
+                    'message' => 'Cannot modify Super Admin role'
+                ], 403);
+            }
+        }
+        // Admin can only promote to Manager or set as Employee
+        elseif ($currentUser->isAdmin()) {
+            if ($validated['role'] === 'Admin') {
+                return response()->json([
+                    'message' => 'Admins cannot promote users to Admin role'
+                ], 403);
+            }
+            
+            if ($user->isAdmin() || $user->isSuperAdmin()) {
+                return response()->json([
+                    'message' => 'Cannot modify Admin or Super Admin roles'
+                ], 403);
+            }
+            
+            // Ensure same company
+            if ($user->company_id !== $currentUser->company_id) {
+                return response()->json([
+                    'message' => 'Cannot modify users from other companies'
+                ], 403);
+            }
+        }
+
+        $user->update(['role' => $validated['role']]);
+
+        return response()->json([
+            'message' => 'User role updated successfully',
+            'user' => $user
+        ]);
+    }
 }
