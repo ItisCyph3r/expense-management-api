@@ -29,8 +29,10 @@ class User extends Authenticatable
     ];
 
     protected $attributes = [
-        'role' => 'Employee'  // This sets the default role
+        'role' => 'Employee'  // Default role
     ];
+
+    const ROLES = ['Super_Admin', 'Admin', 'Manager', 'Employee'];
 
     public function company()
     {
@@ -47,13 +49,26 @@ class User extends Authenticatable
         return $this->hasMany(AuditLog::class);
     }
 
-    public function isAdmin()
+    public function isAdmin(): bool
     {
         return $this->role === 'Admin';
     }
 
-    public function isManager()
+    public function isManager(): bool
     {
         return $this->role === 'Manager';
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'Super_Admin';
+    }
+
+    public function hasRole($role): bool
+    {
+        if (is_array($role)) {
+            return in_array($this->role, $role);
+        }
+        return $this->role === $role;
     }
 }

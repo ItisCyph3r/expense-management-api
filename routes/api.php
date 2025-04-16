@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\CompanyController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -13,6 +14,12 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
     Route::post('/logout', [AuthController::class, 'logout']);
+    
+    // Company Management - Super Admin only
+    Route::middleware('role:Super_Admin')->group(function () {
+        Route::get('/companies', [CompanyController::class, 'index']);
+        Route::post('/companies', [CompanyController::class, 'store']);
+    });
     
     // Expenses - accessible by all roles
     Route::get('/expenses', [ExpenseController::class, 'index']);
