@@ -6,16 +6,22 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
 class Kernel extends HttpKernel
 {
-    // ... existing code ...
-
     /**
      * The application's route middleware.
      *
      * @var array<string, class-string|string>
      */
     protected $routeMiddleware = [
-        // ... existing middleware ...
         'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         'same-company' => \App\Http\Middleware\EnsureSameCompany::class,
+    ];
+
+    protected $middlewareGroups = [
+        'api' => [
+            \App\Http\Middleware\ForceJsonResponse::class,
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+        ],
     ];
 }

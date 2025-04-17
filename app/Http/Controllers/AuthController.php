@@ -4,50 +4,54 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Company;
-use DB;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\{DB, Hash};
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\Redis;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
-{
-    return DB::transaction(function () use ($request) {
-        $request->validate([
+    {
+        $validated = $request->validate([
             'company_name' => 'required|string|max:255',
-            'company_email' => 'required|string|email|max:255|unique:companies,email',
+            'company_email' => 'required|string|email|max:255',
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $company = Company::create([
-            'name' => $request->company_name,
-            'email' => $request->company_email,
-        ]);
+        // Check if company exists
+        $existingCompany = Company::where('email', $validated['company_email'])->first();
+        
+        if (!$existingCompany) {
+            return response()->json([
+                'message' => 'Company does not exist. Please contact an administrator.',
+                'errors' => ['company_email' => ['Company not found']]
+            ], 422);
+        }
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'company_id' => $company->id,
-            // Role will default to 'Employee' from User model
-        ]);
+        return DB::transaction(function () use ($validated, $existingCompany) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'company_id' => $existingCompany->id,
+            ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'message' => 'Registration successful',
-            'user' => $user,
-            'company' => $company,
-            'token' => $token
-        ], 201);
-    });
-}
+            return response()->json([
+                'success' => true,
+                'message' => 'Registration successful',
+                'data' => [
+                    'user' => $user,
+                    'company' => $existingCompany,
+                    'token' => $token
+                ]
+            ], 201);
+        });
+    }
 
     public function login(Request $request)
     {
